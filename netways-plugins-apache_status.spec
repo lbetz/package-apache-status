@@ -1,5 +1,7 @@
 # spec file for package check_apache_status.pl
 
+%global debug_package %{nil}
+
 %define lname	check_apache_status
 
 Name:          netways-plugins-apache-status
