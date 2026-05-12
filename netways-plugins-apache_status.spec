@@ -44,7 +44,7 @@ Checks against the apache status site.
 %clean
 rm -rf %buildroot
 
-%files -n nagios-plugins-apache_status
+%files -n netways-plugins-apache_status
 %defattr(-,root,root)
 %doc MACOS.md CHANGELOG.md LICENSE AUTHORS
 # avoid build dependecy of nagios - own the dirs
