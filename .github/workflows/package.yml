@@ -19,8 +19,8 @@ jobs:
           URL=""
 
           # 1. SPEC-Datei prüfen
-          if [ -f package/netways-plugins-apache_status..spec ]; then
-            URL=$(grep -E '^Source0:' package/netways-plugins-apache_status.spec | awk '{print $2}')
+          if [ -f packaging/netways-plugins-apache_status..spec ]; then
+            URL=$(grep -E '^Source0:' packaging/netways-plugins-apache_status.spec | awk '{print $2}')
           fi
 
           # 2. Debian control prüfen, falls SPEC nichts liefert
