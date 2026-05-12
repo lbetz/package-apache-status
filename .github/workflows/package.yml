@@ -3,28 +3,45 @@ name: Build DEB and RPM packages
 on:
   workflow_dispatch:
 
+name: Build RPM package
+
+#on:
+#  push:
+#    branches:
+#      - main
+#  workflow_dispatch:
+
 jobs:
-  extract-and-download:
+  build-rpm:
     runs-on: ubuntu-latest
-    outputs:
-      url: ${{ steps.url.outputs.url }}
+
+    container:
+      image: fedora:latest
 
     steps:
-      - name: Checkout repository
+      - name: Install git inside container
+        run: dnf install -y git
+
+      - name: Checkout repository inside container
         uses: actions/checkout@v4
 
-      - name: Extract Source URL from SPEC
-        id: url
+      - name: Find SPEC file
+        id: spec
         run: |
-          SPEC="packaging/netways-plugins-apache_status.spec"
+          SPEC=$(find packaging -name "*.spec" | head -n 1)
 
-          if [ ! -f "$SPEC" ]; then
-            echo "ERROR: SPEC-Datei nicht gefunden: $SPEC"
+          if [ -z "$SPEC" ]; then
+            echo "ERROR: Keine SPEC-Datei in packaging/ gefunden."
             exit 1
           fi
 
-          # Source0 aus SPEC extrahieren
-          URL=$(grep -E '^Source0:' "$SPEC" | awk '{print $2}')
+          echo "Gefundene SPEC: $SPEC"
+          echo "spec=$SPEC" >> $GITHUB_OUTPUT
+
+      - name: Extract Source0 URL from SPEC
+        id: url
+        run: |
+          URL=$(grep -E '^Source0:' "${{ steps.spec.outputs.spec }}" | awk '{print $2}')
 
           if [ -z "$URL" ]; then
             echo "ERROR: Keine Source0-URL in SPEC gefunden."
@@ -40,43 +57,23 @@ jobs:
           mkdir src
           tar -xzf source.tar.gz -C src --strip-components=1
 
-      - name: Upload extracted source
-        uses: actions/upload-artifact@v4
-        with:
-          name: source
-          path: src
-
-  build-rpm:
-    needs: extract-and-download
-    runs-on: ubuntu-latest
-
-    container:
-      image: fedora:latest
-
-    steps:
-      - name: Download source
-        uses: actions/download-artifact@v4
-        with:
-          name: source
-          path: .
-
       - name: Install RPM build tools
         run: |
-          dnf install -y rpm-build make gcc git
+          dnf install -y rpm-build make gcc
 
       - name: Prepare rpmbuild structure
         run: |
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
           # SPEC kopieren
-          cp packaging/netways-plugins-apache_status.spec ~/rpmbuild/SPECS/
+          cp "${{ steps.spec.outputs.spec }}" ~/rpmbuild/SPECS/
 
           # Source tarball erzeugen
           tar czf ~/rpmbuild/SOURCES/netways-plugins-apache_status.tar.gz src
 
       - name: Build RPM
         run: |
-          rpmbuild -ba ~/rpmbuild/SPECS/netways-plugins-apache_status.spec
+          rpmbuild -ba ~/rpmbuild/SPECS/$(basename "${{ steps.spec.outputs.spec }}")
           mkdir -p artifacts/rpm
           cp ~/rpmbuild/RPMS/*/*.rpm artifacts/rpm/
 
