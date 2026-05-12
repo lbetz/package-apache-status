@@ -20,7 +20,7 @@ jobs:
 
           # 1. SPEC-Datei prüfen
           if [ -f packaging/yourproject.spec ]; then
-            URL=$(grep -E '^Source0:' packaging/yourproject.spec | awk '{print $2}')
+            URL=$(grep -E '^Source0:' netways-plugins-apache_status.spec | awk '{print $2}')
           fi
 
           # 2. Debian control prüfen, falls SPEC nichts liefert
