@@ -19,7 +19,7 @@ jobs:
           URL=""
 
           # 1. SPEC-Datei prüfen
-          if [ -f packaging/yourproject.spec ]; then
+          if [ -f netways-plugins-apache_status..spec ]; then
             URL=$(grep -E '^Source0:' netways-plugins-apache_status.spec | awk '{print $2}')
           fi
 
