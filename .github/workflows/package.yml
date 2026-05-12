@@ -1,4 +1,4 @@
-name: Build DEB and RPM packages
+name: Build RPM package
 
 on:
   workflow_dispatch:
@@ -17,8 +17,9 @@ jobs:
       image: fedora:latest
 
     steps:
-      - name: Install git inside container
-        run: dnf install -y git wget rpm-build make gcc
+      - name: Install required tools inside container
+        run: |
+          dnf install -y git wget rpm-build make gcc
 
       - name: Checkout repository inside container
         uses: actions/checkout@v4
@@ -26,38 +27,39 @@ jobs:
       - name: Find SPEC file
         id: spec
         run: |
-          SPEC=$(find ./ -name "*.spec" | head -n 1)
+          SPEC=$(find ./ -name "netways-plugins-apache_status.spec" | head -n 1)
 
           if [ -z "$SPEC" ]; then
-            echo "ERROR: Keine SPEC-Datei gefunden."
+            echo "ERROR: SPEC-Datei nicht gefunden."
             exit 1
           fi
 
-          echo "Gefundene SPEC: $SPEC"
           echo "spec=$SPEC" >> $GITHUB_OUTPUT
 
-      - name: Extract Source0 URL from SPEC
+      - name: Extract Source0 URL + filename from SPEC
         id: url
         run: |
-          URL=$(grep -E '^Source0:' "${{ steps.spec.outputs.spec }}" | awk '{print $2}')
+          SPEC="${{ steps.spec.outputs.spec }}"
 
+          URL=$(grep -E '^Source0:' "$SPEC" | awk '{print $2}')
           if [ -z "$URL" ]; then
             echo "ERROR: Keine Source0-URL in SPEC gefunden."
             exit 1
           fi
 
+          FILENAME=$(basename "$URL")
+
           echo "Gefundene URL: $URL"
+          echo "Gefundener Dateiname: $FILENAME"
+
           echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
       - name: Download source tarball
         run: |
-          wget "${{ steps.url.outputs.url }}" -O source.tar.gz
+          wget "${{ steps.url.outputs.url }}" -O "${{ steps.url.outputs.filename }}"
           mkdir src
-          tar -xzf source.tar.gz -C src --strip-components=1
-
-      - name: Install RPM build tools
-        run: |
-          dnf install -y rpm-build make gcc
+          tar -xzf "${{ steps.url.outputs.filename }}" -C src --strip-components=1
 
       - name: Prepare rpmbuild structure
         run: |
@@ -66,8 +68,8 @@ jobs:
           # SPEC kopieren
           cp "${{ steps.spec.outputs.spec }}" ~/rpmbuild/SPECS/
 
-          # Source tarball erzeugen
-          tar czf ~/rpmbuild/SOURCES/netways-plugins-apache_status.tar.gz src
+          # Tarball exakt so benennen, wie SPEC es erwartet
+          cp "${{ steps.url.outputs.filename }}" ~/rpmbuild/SOURCES/
 
       - name: Build RPM
         run: |
