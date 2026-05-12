@@ -4,64 +4,58 @@ on:
   workflow_dispatch:
 
 jobs:
-  extract-source-url:
+  extract-and-download:
     runs-on: ubuntu-latest
     outputs:
-      url: ${{ steps.seturl.outputs.url }}
+      url: ${{ steps.url.outputs.url }}
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract URL from SPEC or debian/control
-        id: seturl
+      - name: Extract Source URL from SPEC
+        id: url
         run: |
-          URL=""
+          SPEC="packaging/netways-plugins-apache_status.spec"
 
-          # 1. SPEC-Datei prüfen
-          if [ -f packaging/netways-plugins-apache_status..spec ]; then
-            URL=$(grep -E '^Source0:' packaging/netways-plugins-apache_status.spec | awk '{print $2}')
+          if [ ! -f "$SPEC" ]; then
+            echo "ERROR: SPEC-Datei nicht gefunden: $SPEC"
+            exit 1
           fi
 
-          # 2. Debian control prüfen, falls SPEC nichts liefert
-          if [ -z "$URL" ] && [ -f debian/control ]; then
-            URL=$(grep -E '^X-Source:' debian/control | cut -d' ' -f2)
-          fi
-
-          # 3. Fallback: Homepage
-          if [ -z "$URL" ] && [ -f debian/control ]; then
-            URL=$(grep -E '^Homepage:' debian/control | cut -d' ' -f2)
-          fi
+          # Source0 aus SPEC extrahieren
+          URL=$(grep -E '^Source0:' "$SPEC" | awk '{print $2}')
 
           if [ -z "$URL" ]; then
-            echo "ERROR: Keine Source-URL in SPEC oder debian/control gefunden."
+            echo "ERROR: Keine Source0-URL in SPEC gefunden."
             exit 1
           fi
 
           echo "Gefundene URL: $URL"
           echo "url=$URL" >> $GITHUB_OUTPUT
 
-      - name: Download source
+      - name: Download source tarball
         run: |
-          wget "${{ steps.seturl.outputs.url }}" -O source.tar.gz
+          wget "${{ steps.url.outputs.url }}" -O source.tar.gz
           mkdir src
           tar -xzf source.tar.gz -C src --strip-components=1
 
-      - name: Upload source
+      - name: Upload extracted source
         uses: actions/upload-artifact@v4
         with:
           name: source
           path: src
 
   build-rpm:
-    needs: extract-source-url
+    needs: extract-and-download
     runs-on: ubuntu-latest
 
     container:
       image: fedora:latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download source
+        uses: actions/download-artifact@v4
         with:
           name: source
           path: .
@@ -70,19 +64,24 @@ jobs:
         run: |
           dnf install -y rpm-build make gcc git
 
-      - name: Prepare RPM build structure
+      - name: Prepare rpmbuild structure
         run: |
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          cp packaging/yourproject.spec ~/rpmbuild/SPECS/
-          tar czf ~/rpmbuild/SOURCES/myproject.tar.gz src
+
+          # SPEC kopieren
+          cp packaging/netways-plugins-apache_status.spec ~/rpmbuild/SPECS/
+
+          # Source tarball erzeugen
+          tar czf ~/rpmbuild/SOURCES/netways-plugins-apache_status.tar.gz src
 
       - name: Build RPM
         run: |
-          rpmbuild -ba ~/rpmbuild/SPECS/yourproject.spec
+          rpmbuild -ba ~/rpmbuild/SPECS/netways-plugins-apache_status.spec
           mkdir -p artifacts/rpm
           cp ~/rpmbuild/RPMS/*/*.rpm artifacts/rpm/
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
         with:
           name: rpm-packages
           path: artifacts/rpm
