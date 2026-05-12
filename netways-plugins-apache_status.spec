@@ -3,13 +3,13 @@
 %define lname	check_apache_status
 
 Name:          netways-plugins-apache-status
+Release:       1%{?dist}
 Summary:       Nagios Plugins - check_apache_status.pl
 Version:       1.4.3
 Url:           http://github.com/lbetz/check_apache_status
 License:       GPL-2.0+
 Group:         System/Monitoring
-#Source0:       https://github.com/lbetz/%{lname}/archive/refs/tags/v%{version}.tar.gz
-Source0:       https://github.com/lbetz/check_apache_status/archive/refs/tags/v1.4.3.tar.gz
+Source0:       https://github.com/lbetz/%{lname}/archive/refs/tags/v%{version}.tar.gz
 Provides:      netways-plugins-apache-status = %{version}-%{release}
 Obsoletes:     nagios-plugins-apache_status < %{version}-%{release}
 Requires:      perl(Monitoring::Plugin)
