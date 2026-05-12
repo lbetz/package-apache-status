@@ -26,10 +26,10 @@ jobs:
       - name: Find SPEC file
         id: spec
         run: |
-          SPEC=$(find packaging -name "*.spec" | head -n 1)
+          SPEC=$(find ./ -name "*.spec" | head -n 1)
 
           if [ -z "$SPEC" ]; then
-            echo "ERROR: Keine SPEC-Datei in packaging/ gefunden."
+            echo "ERROR: Keine SPEC-Datei gefunden."
             exit 1
           fi
 
