@@ -3,8 +3,6 @@ name: Build DEB and RPM packages
 on:
   workflow_dispatch:
 
-name: Build RPM package
-
 #on:
 #  push:
 #    branches:
