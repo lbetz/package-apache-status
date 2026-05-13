@@ -1,25 +1,34 @@
-name: Build RPM package
+name: Build & Test RPM Matrix
 
 on:
   workflow_dispatch:
 
 #on:
 #  push:
-#    branches:
-#      - main
+#    branches: [ main ]
 #  workflow_dispatch:
 
 jobs:
-  build-rpm:
+  build-test-rpm:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [fedora:38, fedora:39, fedora:40, almalinux:8, almalinux:9]
+        arch: [x86_64, aarch64]
+
     container:
-      image: fedora:latest
+      image: ${{ matrix.distro }}
 
     steps:
-      - name: Install required tools inside container
+      - name: Install required tools
         run: |
-          dnf install -y git wget rpm-build make gcc
+          if command -v dnf >/dev/null; then
+            dnf install -y git wget rpm-build rpmdevtools findutils gcc make
+          else
+            yum install -y git wget rpm-build rpmdevtools findutils gcc make
+          fi
 
       - name: Checkout repository inside container
         uses: actions/checkout@v4
@@ -27,31 +36,14 @@ jobs:
       - name: Find SPEC file
         id: spec
         run: |
-          SPEC=$(find ./ -name "netways-plugins-apache_status.spec" | head -n 1)
-
-          if [ -z "$SPEC" ]; then
-            echo "ERROR: SPEC-Datei nicht gefunden."
-            exit 1
-          fi
-
+          SPEC=$(find ./ -name "*.spec" | head -n 1)
           echo "spec=$SPEC" >> $GITHUB_OUTPUT
 
-      - name: Extract Source0 URL + filename from SPEC
+      - name: Extract Source0 URL + filename
         id: url
         run: |
-          SPEC="${{ steps.spec.outputs.spec }}"
-
-          URL=$(grep -E '^Source0:' "$SPEC" | awk '{print $2}')
-          if [ -z "$URL" ]; then
-            echo "ERROR: Keine Source0-URL in SPEC gefunden."
-            exit 1
-          fi
-
+          URL=$(grep -E '^Source0:' "${{ steps.spec.outputs.spec }}" | awk '{print $2}')
           FILENAME=$(basename "$URL")
-
-          echo "Gefundene URL: $URL"
-          echo "Gefundener Dateiname: $FILENAME"
-
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
@@ -64,11 +56,7 @@ jobs:
       - name: Prepare rpmbuild structure
         run: |
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-
-          # SPEC kopieren
           cp "${{ steps.spec.outputs.spec }}" ~/rpmbuild/SPECS/
-
-          # Tarball exakt so benennen, wie SPEC es erwartet
           cp "${{ steps.url.outputs.filename }}" ~/rpmbuild/SOURCES/
 
       - name: Build RPM
@@ -77,37 +65,27 @@ jobs:
           mkdir -p artifacts/rpm
           cp ~/rpmbuild/RPMS/*/*.rpm artifacts/rpm/
 
+      - name: Install built RPM
+        run: |
+          RPM=$(ls artifacts/rpm/*.rpm | head -n 1)
+          echo "Installing $RPM"
+          if command -v dnf >/dev/null; then
+            dnf install -y "$RPM"
+          else
+            yum install -y "$RPM"
+          fi
+
+      - name: Uninstall RPM
+        run: |
+          if command -v dnf >/dev/null; then
+            dnf remove -y netways-plugins-apache_status || true
+          else
+            yum remove -y netways-plugins-apache_status || true
+          fi
+
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rpm-packages
+          name: rpm-${{ matrix.distro }}-${{ matrix.arch }}
           path: artifacts/rpm
-
-  test-rpm:
-    needs: build-rpm
-    runs-on: ubuntu-latest
-  
-    container:
-      image: fedora:latest
-  
-    steps:
-      - name: Install required tools
-        run: |
-          dnf install -y git rpm-build rpmdevtools
-  
-      - name: Download RPM artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rpm-packages
-          path: .
-  
-      - name: Install built RPM
-        run: |
-          RPM=$(ls *.rpm | head -n 1)
-          echo "Installing $RPM"
-          dnf install -y "$RPM"
-  
-      - name: Uninstall RPM
-        run: |
-          dnf remove -y netways-plugins-apache_status || true
 
