@@ -5,21 +5,23 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Gemeinsame Matrix-Definition (einmal!)
-env:
-  MATRIX: >
-    {
-      "distro": ["fedora38", "fedora39", "fedora40", "almalinux8", "almalinux9"],
-      "arch": ["x86_64", "aarch64"]
-    }
-
 jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: |
+          echo "matrix={\"distro\": [\"fedora38\", \"fedora39\", \"fedora40\", \"almalinux8\", \"almalinux9\"], \"arch\": [\"x86_64\", \"aarch64\"]}" >> $GITHUB_OUTPUT
+
   build-rpm:
+    needs: define-matrix
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(env.MATRIX) }}
+      matrix: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
 
     container:
       image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
@@ -55,9 +57,7 @@ jobs:
           PKGVER=$(grep -E '^Version:' "$SPEC" | awk '{print $2}')
           RAWURL=$(grep -E '^Source0:' "$SPEC" | awk '{print $2}')
 
-          # %{version} ersetzen
           URL=${RAWURL//\%\{version\}/$PKGVER}
-
           FILENAME=$(basename "$URL")
 
           echo "pkgname=$PKGNAME" >> $GITHUB_OUTPUT
@@ -90,12 +90,12 @@ jobs:
           path: artifacts/rpm
 
   test-rpm:
-    needs: build-rpm
+    needs: [define-matrix, build-rpm]
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(env.MATRIX) }}
+      matrix: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
 
     container:
       image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
