@@ -9,20 +9,24 @@ on:
 #  workflow_dispatch:
 
 jobs:
-  build-test-rpm:
+  build-rpm:
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        distro: [fedora:38, fedora:39, fedora:40, almalinux:8, almalinux:9]
+        distro: [fedora38, fedora39, fedora40, almalinux8, almalinux9]
         arch: [x86_64, aarch64]
 
     container:
-      image: ${{ matrix.distro }}
+      image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
+                 matrix.distro == 'fedora39' && 'fedora:39' ||
+                 matrix.distro == 'fedora40' && 'fedora:40' ||
+                 matrix.distro == 'almalinux8' && 'almalinux:8' ||
+                 matrix.distro == 'almalinux9' && 'almalinux:9' }}
 
     steps:
-      - name: Install required tools
+      - name: Install build tools
         run: |
           if command -v dnf >/dev/null; then
             dnf install -y git wget rpm-build rpmdevtools findutils gcc make
@@ -30,7 +34,7 @@ jobs:
             yum install -y git wget rpm-build rpmdevtools findutils gcc make
           fi
 
-      - name: Checkout repository inside container
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Find SPEC file
@@ -65,27 +69,14 @@ jobs:
           mkdir -p artifacts/rpm
           cp ~/rpmbuild/RPMS/*/*.rpm artifacts/rpm/
 
-      - name: Install built RPM
-        run: |
-          RPM=$(ls artifacts/rpm/*.rpm | head -n 1)
-          echo "Installing $RPM"
-          if command -v dnf >/dev/null; then
-            dnf install -y "$RPM"
-          else
-            yum install -y "$RPM"
-          fi
-
-      - name: Uninstall RPM
-        run: |
-          if command -v dnf >/dev/null; then
-            dnf remove -y netways-plugins-apache_status || true
-          else
-            yum remove -y netways-plugins-apache_status || true
-          fi
-
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
         with:
           name: rpm-${{ matrix.distro }}-${{ matrix.arch }}
           path: artifacts/rpm
+
+  test-rpm:
+    needs: build-rpm
+    runs-on: ubuntu-latest
+
 
