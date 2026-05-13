@@ -17,3 +17,6 @@ jobs:
         echo "Running repo-specific pre-build steps"
       pre_test: |
         echo "Running repo-specific pre-test steps"
+        if [[ "${{ matrix.distro }}" == almalinux:* ]]; then
+          dnf install -y epel-release
+        fi
