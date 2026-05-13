@@ -1,155 +1,19 @@
-name: RPM Matrix Build & Test
+name: Build RPM
 
 on:
   push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  # ---------------------------------------------------------
-  # 1) Matrix EINMAL definieren
-  # ---------------------------------------------------------
-  define-matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set.outputs.matrix }}
-    steps:
-      - id: set
-        run: |
-          echo "matrix={\"distro\": [\"fedora38\", \"fedora39\", \"fedora40\", \"almalinux8\", \"almalinux9\"], \"arch\": [\"x86_64\"]}" >> $GITHUB_OUTPUT
-
-  # ---------------------------------------------------------
-  # 2) Build-Job
-  # ---------------------------------------------------------
-  build-rpm:
-    needs: define-matrix
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
-
-    container:
-      image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
-                 matrix.distro == 'fedora39' && 'fedora:39' ||
-                 matrix.distro == 'fedora40' && 'fedora:40' ||
-                 matrix.distro == 'almalinux8' && 'almalinux:8' ||
-                 matrix.distro == 'almalinux9' && 'almalinux:9' }}
-
-    steps:
-      - name: Install build tools
-        run: |
-          if command -v dnf >/dev/null; then
-            dnf install -y git wget rpm-build rpmdevtools findutils gcc make
-          else
-            yum install -y git wget rpm-build rpmdevtools findutils gcc make
-          fi
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Find SPEC file in project root
-        id: spec
-        run: |
-          SPEC=$(find . -maxdepth 1 -name "*.spec" | head -n 1)
-          if [ -z "$SPEC" ]; then
-            echo "No SPEC file found in project root!"
-            exit 1
-          fi
-          echo "spec=$SPEC" >> $GITHUB_OUTPUT
-
-      - name: Extract Name + Version + Source0
-        id: meta
-        run: |
-          SPEC="${{ steps.spec.outputs.spec }}"
-          PKGNAME=$(grep -E '^Name:' "$SPEC" | awk '{print $2}')
-          PKGVER=$(grep -E '^Version:' "$SPEC" | awk '{print $2}')
-          RAWURL=$(grep -E '^Source0:' "$SPEC" | awk '{print $2}')
-          URL=${RAWURL//\%\{version\}/$PKGVER}
-          FILENAME=$(basename "$URL")
-          echo "pkgname=$PKGNAME" >> $GITHUB_OUTPUT
-          echo "pkgver=$PKGVER" >> $GITHUB_OUTPUT
-          echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
-
-      - name: Download source tarball
-        run: |
-          wget "${{ steps.meta.outputs.url }}" -O "${{ steps.meta.outputs.filename }}"
-          mkdir src
-          tar -xzf "${{ steps.meta.outputs.filename }}" -C src --strip-components=1
-
-      - name: Prepare rpmbuild structure
-        run: |
-          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          cp "${{ steps.spec.outputs.spec }}" ~/rpmbuild/SPECS/
-          cp "${{ steps.meta.outputs.filename }}" ~/rpmbuild/SOURCES/
-
-      - name: Build RPM
-        run: |
-          rpmbuild --target x86_64 -ba ~/rpmbuild/SPECS/$(basename "${{ steps.spec.outputs.spec }}")
-          mkdir -p artifacts/rpm
-          cp ~/rpmbuild/RPMS/x86_64/*.rpm artifacts/rpm/
-
-      - name: Upload RPM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rpm-${{ matrix.distro }}-${{ matrix.arch }}
-          path: artifacts/rpm
-
-  # ---------------------------------------------------------
-  # 3) Test-Job
-  # ---------------------------------------------------------
-  test-rpm:
-    needs: [define-matrix, build-rpm]
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.define-matrix.outputs.matrix) }}
-
-    container:
-      image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
-                 matrix.distro == 'fedora39' && 'fedora:39' ||
-                 matrix.distro == 'fedora40' && 'fedora:40' ||
-                 matrix.distro == 'almalinux8' && 'almalinux:8' ||
-                 matrix.distro == 'almalinux9' && 'almalinux:9' }}
-
-    steps:
-      - name: Install test tools
-        run: |
-          if command -v dnf >/dev/null; then
-            dnf install -y git rpm-build rpmdevtools findutils
-          else
-            yum install -y git rpm-build rpmdevtools findutils
-          fi
-
-      - name: Download RPM artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rpm-${{ matrix.distro }}-${{ matrix.arch }}
-          path: .
-
-      - name: Extract package name from RPM
-        id: rpmmeta
-        run: |
-          RPM=$(ls *.rpm | head -n 1)
-          PKGNAME=$(rpm -qp --qf "%{NAME}\n" "$RPM")
-          echo "pkgname=$PKGNAME" >> $GITHUB_OUTPUT
-
-      - name: Install built RPM
-        run: |
-          RPM=$(ls *.rpm | head -n 1)
-          if command -v dnf >/dev/null; then
-            dnf install -y "$RPM"
-          else
-            yum install -y "$RPM"
-          fi
-
-      - name: Uninstall RPM
-        run: |
-          if command -v dnf >/dev/null; then
-            dnf remove -y "${{ steps.rpmmeta.outputs.pkgname }}" || true
-          else
-            yum remove -y "${{ steps.rpmmeta.outputs.pkgname }}" || true
-          fi
-
+  call-generic:
+    uses: org/.github/workflows/rpm-build.yml@main
+    with:
+      matrix: |
+        {
+          "distro": ["fedora:40", "almalinux:9"],
+          "arch": ["x86_64"]
+        }
+      pre_build: |
+        echo "Running repo-specific pre-build steps"
+      pre_test: |
+        echo "Running repo-specific pre-test steps"
