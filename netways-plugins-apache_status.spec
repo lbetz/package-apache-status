@@ -8,7 +8,7 @@ Version:       1.4.3
 Url:           http://github.com/lbetz/check_apache_status
 License:       GPL-2.0+
 Group:         System/Monitoring
-Source0:       https://github.com/lbetz/check_apache_status/archive/refs/tags/v1.4.3.tar.gz
+Source0:       https://github.com/lbetz/check_apache_status/archive/refs/tags/v%{version}.tar.gz
 Requires:      perl(Monitoring::Plugin)
 Requires:      perl(LWP::UserAgent)
 Requires:      perl(Data::Dumper)

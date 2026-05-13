@@ -1,22 +1,13 @@
-name: Build RPM
-
 on:
   push:
-  workflow_dispatch:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:  # hier kannst du dann manuell triggern!
 
 jobs:
-  call-generic:
+  rpm:
     uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@main
     with:
-      matrix: |
-        {
-          "distro": ["fedora:40", "almalinux:9"],
-          "arch": ["x86_64"]
-        }
-      pre_build: |
-        echo "Running repo-specific pre-build steps"
-      pre_test: |
-        echo "Running repo-specific pre-test steps"
-        if [[ "${{ matrix.distro }}" == almalinux:* ]]; then
-          dnf install -y epel-release
-        fi
+      ci_workflows_ref: "main"
+      distros: '["fedora44", "el9"]'
+      architectures: '["x86_64"]'
