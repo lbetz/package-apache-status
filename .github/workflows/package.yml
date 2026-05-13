@@ -1,12 +1,9 @@
-name: Build & Test RPM Matrix
+name: RPM Matrix Build & Test
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
-
-#on:
-#  push:
-#    branches: [ main ]
-#  workflow_dispatch:
 
 jobs:
   build-rpm:
@@ -79,4 +76,49 @@ jobs:
     needs: build-rpm
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [fedora38, fedora39, fedora40, almalinux8, almalinux9]
+        arch: [x86_64, aarch64]
+
+    container:
+      image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
+                 matrix.distro == 'fedora39' && 'fedora:39' ||
+                 matrix.distro == 'fedora40' && 'fedora:40' ||
+                 matrix.distro == 'almalinux8' && 'almalinux:8' ||
+                 matrix.distro == 'almalinux9' && 'almalinux:9' }}
+
+    steps:
+      - name: Install test tools
+        run: |
+          if command -v dnf >/dev/null; then
+            dnf install -y git rpm-build rpmdevtools findutils
+          else
+            yum install -y git rpm-build rpmdevtools findutils
+          fi
+
+      - name: Download RPM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rpm-${{ matrix.distro }}-${{ matrix.arch }}
+          path: .
+
+      - name: Install built RPM
+        run: |
+          RPM=$(ls *.rpm | head -n 1)
+          echo "Installing $RPM"
+          if command -v dnf >/dev/null; then
+            dnf install -y "$RPM"
+          else
+            yum install -y "$RPM"
+          fi
+
+      - name: Uninstall RPM
+        run: |
+          if command -v dnf >/dev/null; then
+            dnf remove -y netways-plugins-apache_status || true
+          else
+            yum remove -y netways-plugins-apache_status || true
+          fi
 
