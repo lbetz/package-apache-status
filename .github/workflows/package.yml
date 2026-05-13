@@ -5,15 +5,18 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Gemeinsame Matrix-Definition per YAML-Anker
+x-matrix: &rpm_matrix
+  distro: [fedora40, almalinux9]
+  arch: [x86_64, aarch64]
+
 jobs:
   build-rpm:
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
-      matrix:
-        distro: [fedora40, almalinux9]
-        arch: [x86_64]
+      matrix: *rpm_matrix
 
     container:
       image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
@@ -89,9 +92,7 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix:
-        distro: [fedora40, almalinux9]
-        arch: [x86_64]
+      matrix: *rpm_matrix
 
     container:
       image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
@@ -115,12 +116,11 @@ jobs:
           name: rpm-${{ matrix.distro }}-${{ matrix.arch }}-*
           path: .
 
-      - name: Extract package name + version from RPM filename
+      - name: Extract package name from RPM
         id: rpmmeta
         run: |
           RPM=$(ls *.rpm | head -n 1)
-          BASENAME=$(rpm -qp --qf "%{NAME} %{VERSION}\n" "$RPM")
-          PKGNAME=$(echo "$BASENAME" | awk '{print $1}')
+          PKGNAME=$(rpm -qp --qf "%{NAME}\n" "$RPM")
           echo "pkgname=$PKGNAME" >> $GITHUB_OUTPUT
 
       - name: Install built RPM
