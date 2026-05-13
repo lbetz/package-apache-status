@@ -6,7 +6,7 @@ on:
 
 jobs:
   call-generic:
-    uses: org/.github/workflows/rpm-build.yml@main
+    uses: lbetz/.github/workflows/rpm-build.yml@main
     with:
       matrix: |
         {
