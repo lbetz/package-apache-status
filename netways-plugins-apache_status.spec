@@ -2,8 +2,6 @@
 
 %global debug_package %{nil}
 
-%define lname	check_apache_status
-
 Name:          netways-plugins-apache-status
 Summary:       Nagios Plugins - check_apache_status.pl
 Version:       1.4.3
@@ -37,7 +35,7 @@ Obsoletes:     nagios-plugins-apache_status < %{version}-%{release}
 Checks against the apache status site.
 
 %prep
-%setup -q -n %{lname}-%{version}
+%setup -q -n check_apache_status-%{version}
 
 %install
 %{__mkdir_p} %{buildroot}/%{_libdir}/nagios/plugins

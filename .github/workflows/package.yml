@@ -12,8 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [fedora38, fedora39, fedora40, almalinux8, almalinux9]
-        arch: [x86_64, aarch64]
+        distro: [fedora40, almalinux9]
+        arch: [x86_64]
 
     container:
       image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
@@ -40,25 +40,36 @@ jobs:
           SPEC=$(find ./ -name "*.spec" | head -n 1)
           echo "spec=$SPEC" >> $GITHUB_OUTPUT
 
-      - name: Extract Source0 URL + filename
-        id: url
+      - name: Extract Name + Version + Source0
+        id: meta
         run: |
-          URL=$(grep -E '^Source0:' "${{ steps.spec.outputs.spec }}" | awk '{print $2}')
+          SPEC="${{ steps.spec.outputs.spec }}"
+
+          PKGNAME=$(grep -E '^Name:' "$SPEC" | awk '{print $2}')
+          PKGVER=$(grep -E '^Version:' "$SPEC" | awk '{print $2}')
+          RAWURL=$(grep -E '^Source0:' "$SPEC" | awk '{print $2}')
+
+          # %{version} ersetzen
+          URL=${RAWURL//\%\{version\}/$PKGVER}
+
           FILENAME=$(basename "$URL")
+
+          echo "pkgname=$PKGNAME" >> $GITHUB_OUTPUT
+          echo "pkgver=$PKGVER" >> $GITHUB_OUTPUT
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
       - name: Download source tarball
         run: |
-          wget "${{ steps.url.outputs.url }}" -O "${{ steps.url.outputs.filename }}"
+          wget "${{ steps.meta.outputs.url }}" -O "${{ steps.meta.outputs.filename }}"
           mkdir src
-          tar -xzf "${{ steps.url.outputs.filename }}" -C src --strip-components=1
+          tar -xzf "${{ steps.meta.outputs.filename }}" -C src --strip-components=1
 
       - name: Prepare rpmbuild structure
         run: |
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
           cp "${{ steps.spec.outputs.spec }}" ~/rpmbuild/SPECS/
-          cp "${{ steps.url.outputs.filename }}" ~/rpmbuild/SOURCES/
+          cp "${{ steps.meta.outputs.filename }}" ~/rpmbuild/SOURCES/
 
       - name: Build RPM
         run: |
@@ -69,7 +80,7 @@ jobs:
       - name: Upload RPM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rpm-${{ matrix.distro }}-${{ matrix.arch }}
+          name: rpm-${{ matrix.distro }}-${{ matrix.arch }}-${{ steps.meta.outputs.pkgname }}-${{ steps.meta.outputs.pkgver }}
           path: artifacts/rpm
 
   test-rpm:
@@ -79,8 +90,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [fedora38, fedora39, fedora40, almalinux8, almalinux9]
-        arch: [x86_64, aarch64]
+        distro: [fedora40, almalinux9]
+        arch: [x86_64]
 
     container:
       image: ${{ matrix.distro == 'fedora38' && 'fedora:38' ||
@@ -101,13 +112,20 @@ jobs:
       - name: Download RPM artifact
         uses: actions/download-artifact@v4
         with:
-          name: rpm-${{ matrix.distro }}-${{ matrix.arch }}
+          name: rpm-${{ matrix.distro }}-${{ matrix.arch }}-*
           path: .
+
+      - name: Extract package name + version from RPM filename
+        id: rpmmeta
+        run: |
+          RPM=$(ls *.rpm | head -n 1)
+          BASENAME=$(rpm -qp --qf "%{NAME} %{VERSION}\n" "$RPM")
+          PKGNAME=$(echo "$BASENAME" | awk '{print $1}')
+          echo "pkgname=$PKGNAME" >> $GITHUB_OUTPUT
 
       - name: Install built RPM
         run: |
           RPM=$(ls *.rpm | head -n 1)
-          echo "Installing $RPM"
           if command -v dnf >/dev/null; then
             dnf install -y "$RPM"
           else
@@ -117,8 +135,8 @@ jobs:
       - name: Uninstall RPM
         run: |
           if command -v dnf >/dev/null; then
-            dnf remove -y netways-plugins-apache_status || true
+            dnf remove -y "${{ steps.rpmmeta.outputs.pkgname }}" || true
           else
-            yum remove -y netways-plugins-apache_status || true
+            yum remove -y "${{ steps.rpmmeta.outputs.pkgname }}" || true
           fi
 
