@@ -1,3 +1,5 @@
+name: Build RPM
+
 on:
   push:
     branches: [ main ]
@@ -5,9 +7,27 @@ on:
   workflow_dispatch:  # hier kannst du dann manuell triggern!
 
 jobs:
-  rpm:
+  expand-matrix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Expand matrix
+        id: expand
+        uses: ./.github/actions/expand-matrix
+        with:
+          matrix: |
+            el9: x86_64
+            fedora44: [x86_64]
+
+    outputs:
+      matrix: ${{ steps.expand.outputs.matrix }}
+
+  build:
+    needs: expand-matrix
     uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@main
     with:
       ci_workflows_ref: "main"
-      distros: '["fedora44", "el9"]'
-      architectures: '["x86_64", "aarch64"]'
+      matrix: ${{ needs.expand-matrix.outputs.matrix }}
