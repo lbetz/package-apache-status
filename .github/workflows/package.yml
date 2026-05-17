@@ -10,11 +10,6 @@ jobs:
   expand-matrix:
     runs-on: ubuntu-latest
 
-    env:
-      MATRIX: |
-        el9: x86_64
-        fedora44: [x86_64, aarch64]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

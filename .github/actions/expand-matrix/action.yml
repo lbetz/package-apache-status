@@ -9,6 +9,7 @@ inputs:
 outputs:
   matrix:
     description: "Expanded JSON matrix"
+    value: ${{ steps.expand.outputs.matrix }}
 
 runs:
   using: "composite"
