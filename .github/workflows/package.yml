@@ -29,5 +29,5 @@ jobs:
     needs: expand-matrix
     uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@rework
     with:
-      ci_workflows_ref: "work"
+      ci_workflows_ref: "rework"
       matrix: ${{ needs.expand-matrix.outputs.matrix }}
