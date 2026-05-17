@@ -16,6 +16,9 @@ jobs:
         fedora44: [x86_64, aarch64]
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Expand matrix
         id: expand
         uses: ./.github/actions/expand-matrix
