@@ -47,5 +47,6 @@ runs:
       run: cat $GITHUB_OUTPUT
 
     - name: Show MATRIX raw
+      shell: bash
       run: |
         printf '%s\n' "$MATRIX"
