@@ -1,3 +1,5 @@
+name: Build RPM
+
 on:
   push:
     branches: [ main ]
@@ -5,9 +7,54 @@ on:
   workflow_dispatch:  # hier kannst du dann manuell triggern!
 
 jobs:
-  rpm:
-    uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@main
+  expand-matrix:
+    runs-on: ubuntu-latest
+
+    env:
+      MATRIX: |
+        el9: x86_64
+        fedora44: [x86_64, aarch64]
+
+    steps:
+      - name: Debug MATRIX
+        run: |
+          echo "MATRIX content:"
+          echo "$MATRIX"
+
+      - name: Expand compact matrix
+        id: expand
+        run: |
+          pip install pyyaml
+          python3 << 'EOF'
+          import yaml, json, os
+
+          raw_yaml = os.environ.get("MATRIX")
+          raw = yaml.safe_load(raw_yaml)
+          expanded = {"include": []}
+
+          for distro, archs in raw.items():
+              if isinstance(archs, str):
+                  archs = [archs]
+              for arch in archs:
+                  expanded["include"].append({"distro": distro, "arch": arch})
+
+          # Step output
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"matrix={json.dumps(expanded)}\n")
+          EOF
+
+      - name: Debug GITHUB_OUTPUT
+        run: cat $GITHUB_OUTPUT
+
+      - name: Show MATRIX raw
+        run: |
+          printf '%s\n' "$MATRIX"
+
+    outputs:
+      matrix: ${{ steps.expand.outputs.matrix }}
+
+  build:
+    needs: expand-matrix
+    uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@rework
     with:
-      ci_workflows_ref: "main"
-      distros: '["fedora44", "el9"]'
-      architectures: '["x86_64", "aarch64"]'
+      matrix: ${{ needs.expand-matrix.outputs.matrix }}
