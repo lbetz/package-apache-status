@@ -6,8 +6,8 @@ on:
 
 jobs:
   rpm:
-    uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@rework
+    uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@main
     with:
-      ci_workflows_ref: "rework"
+      ci_workflows_ref: "main"
       distros: '["fedora44", "el9"]'
-      architectures: '["x86_64"]'
+      architectures: '["x86_64", "aarch64"]'
