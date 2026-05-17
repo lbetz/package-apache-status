@@ -1,0 +1,50 @@
+name: Expand Matrix
+description: Expands a compact distro/arch matrix into a full include-matrix.
+
+inputs:
+  matrix:
+    description: "Compact YAML matrix"
+    required: true
+
+outputs:
+  matrix:
+    description: "Expanded JSON matrix"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Debug MATRIX
+      shell: bash
+      run: |
+        echo "MATRIX content:"
+        echo "${{ inputs.matrix }}"
+
+    - name: Expand compact matrix
+      id: expand
+      shell: bash
+      run: |
+        pip install pyyaml
+        python3 << 'EOF'
+        import yaml, json, os
+
+        raw_yaml = """${{ inputs.matrix }}"""
+        raw = yaml.safe_load(raw_yaml)
+        expanded = {"include": []}
+
+        for distro, archs in raw.items():
+            if isinstance(archs, str):
+                archs = [archs]
+            for arch in archs:
+                expanded["include"].append({"distro": distro, "arch": arch})
+
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"matrix={json.dumps(expanded)}\n")
+        EOF
+
+    - name: Debug GITHUB_OUTPUT
+      shell: bash
+      run: cat $GITHUB_OUTPUT
+
+    - name: Show MATRIX raw
+      run: |
+        printf '%s\n' "$MATRIX"

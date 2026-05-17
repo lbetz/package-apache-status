@@ -16,39 +16,13 @@ jobs:
         fedora44: [x86_64, aarch64]
 
     steps:
-      - name: Debug MATRIX
-        run: |
-          echo "MATRIX content:"
-          echo "$MATRIX"
-
-      - name: Expand compact matrix
+      - name: Expand matrix
         id: expand
-        run: |
-          pip install pyyaml
-          python3 << 'EOF'
-          import yaml, json, os
-
-          raw_yaml = os.environ.get("MATRIX")
-          raw = yaml.safe_load(raw_yaml)
-          expanded = {"include": []}
-
-          for distro, archs in raw.items():
-              if isinstance(archs, str):
-                  archs = [archs]
-              for arch in archs:
-                  expanded["include"].append({"distro": distro, "arch": arch})
-
-          # Step output
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"matrix={json.dumps(expanded)}\n")
-          EOF
-
-      - name: Debug GITHUB_OUTPUT
-        run: cat $GITHUB_OUTPUT
-
-      - name: Show MATRIX raw
-        run: |
-          printf '%s\n' "$MATRIX"
+        uses: ./.github/actions/expand-matrix
+        with:
+          matrix: |
+            el9: x86_64
+            fedora44: [x86_64]
 
     outputs:
       matrix: ${{ steps.expand.outputs.matrix }}
