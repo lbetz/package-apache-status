@@ -13,7 +13,11 @@ log "Project post-test hook – distro: $ID ($ID_LIKE)"
 # ---------------------------------------------------------------------------
 log "Running smoke tests..."
 
-MYBIN='/usr/lib64/nagios/plugins/check_apache_status.pl'
+if is_debian || is_ubuntu; then
+  MYBIN='/usr/lib/nagios/plugins/check_apache_status.pl'
+else
+  MYBIN='/usr/lib64/nagios/plugins/check_apache_status.pl'
+fi
 
 # Beispiel: Prüfen, ob das installierte Binary existiert
 if command -v $MYBIN >/dev/null 2>&1; then

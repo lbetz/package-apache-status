@@ -1,4 +1,4 @@
-name: Build RPM
+name: Build packages
 
 on:
   push:
@@ -20,14 +20,15 @@ jobs:
         with:
           matrix: |
             el9: x86_64
-            fedora44: [x86_64]
+            debian12: [x86_64]
+            ubuntu24: x86_64
 
     outputs:
       matrix: ${{ steps.expand.outputs.matrix }}
 
   build:
     needs: expand-matrix
-    uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@main
+    uses: lbetz/ci-workflows/.github/workflows/build.yml@main
     with:
       ci_workflows_ref: "main"
       matrix: ${{ needs.expand-matrix.outputs.matrix }}

@@ -6,7 +6,3 @@ source /workspace/.ci-workflows/hooks/lib/distro.sh
 source /workspace/.ci-workflows/hooks/lib/common.sh || true
 
 log "Project pre-build hook – distro: $ID ($ID_LIKE)"
-
-# hier projektspezifische Build-Setup-Schritte im Container
-mkdir -p BUILD BUILDROOT RPMS SOURCES SPECS SRPMS
-
