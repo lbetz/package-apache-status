@@ -2,7 +2,7 @@ name: Build RPM
 
 on:
   push:
-    branches: [ main ]
+    branches: [ rework ]
   pull_request:
   workflow_dispatch:  # hier kannst du dann manuell triggern!
 
@@ -27,7 +27,7 @@ jobs:
 
   build:
     needs: expand-matrix
-    uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@main
+    uses: lbetz/ci-workflows/.github/workflows/rpm-build.yml@rework
     with:
       # ci_workflows_ref: "rework"
       matrix: ${{ needs.expand-matrix.outputs.matrix }}
